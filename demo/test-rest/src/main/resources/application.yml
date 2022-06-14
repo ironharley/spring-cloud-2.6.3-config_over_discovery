@@ -13,3 +13,4 @@ spring:
         service-id: cloud-config
     discovery:
       enabled: true
+debug: true

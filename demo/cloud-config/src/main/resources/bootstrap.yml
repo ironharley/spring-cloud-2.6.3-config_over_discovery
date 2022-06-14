@@ -1,0 +1,13 @@
+encrypt:
+  # Symmetric cryptography enc/dec enabled here or by ENCRYPT_KEY env
+  key: 'b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABlwAAAAdzc2gtcnNhAAAAAwEAAQAAAYEApif1UbiO+lcf3yTgfi2XWqgUlbfYAnkLxeqRkr2LIlUnmMVeDZL6'
+
+  # Asymmetric cryptography enc/dec enable here by RSA 2048
+  # keytool -genkeypair -alias mytestkey -keyalg RSA \
+  # -dname "CN=Cloud Config Server,OU=PVSSD,O=SBT,L=Moscow,S=Moscow,C=RU"\
+  # -keypass mo933rgl75 -keystore server.jks -storepass mo933rgl75
+  #key-store:
+  #  location: classpath:server.jks
+  #  password: 'mo933rgl75'
+  #  alias: 'mytestkey'
+  #  secret: 'mo933rgl75'

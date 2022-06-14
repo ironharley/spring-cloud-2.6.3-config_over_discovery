@@ -4,14 +4,14 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.example</groupId>
-        <artifactId>cloud-test</artifactId>
+        <artifactId>cloud-infra-parent</artifactId>
         <version>0.0.1-SNAPSHOT</version>
-        <relativePath>../../pom.xml</relativePath>
+        <relativePath>../../cloud-infra-parent/pom.xml</relativePath>
     </parent>
     <artifactId>eureka-server</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>eureka-server</name>
-    <description>eureka-server</description>
+    <name>${project.parent.artifactId}/${project.artifactId}</name>
+    <description>${project.name}</description>
     <properties>
         <java.version>11</java.version>
     </properties>

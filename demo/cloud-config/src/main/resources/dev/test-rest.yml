@@ -1,1 +1,4 @@
 server.port: 28888
+app:
+  test:
+    value: simple

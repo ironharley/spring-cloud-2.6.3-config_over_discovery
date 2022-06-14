@@ -7,4 +7,18 @@ server.port: 18888
 spring:
   application.name: cloud-config
   profiles.active: native
-  cloud.config.server.native.search-locations: classpath:/dev
+  cloud.config.server:
+    encrypt:
+      enabled: true
+      plain-text-encrypt: true
+    native:
+      search-locations: classpath:/dev
+    git:
+      order: 2
+      ignore-local-ssh-settings: true
+      uri: 'https://dzo.sw.sbc.space/bitbucket-ci/scm/pvssd/cloud-config.git'
+      username: 'tuz_sbt_ci_ssdconfigservice'
+      password: 'CHa?q4=BqG_b7=*kS1'
+      default-label: 'master'
+      search-paths: '/${app.branch.name}'
+      refresh-rate: 30
