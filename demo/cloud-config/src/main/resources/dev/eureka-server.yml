@@ -1,0 +1,12 @@
+eureka:
+  instance:
+    instance-id: ${spring.application.name}-local
+    preferIpAddress: true
+
+  server:
+    min-available-instances-for-peer-replication: 1
+    my-url: http://localhost:${server.port}/
+
+  client:
+    registerWithEureka: false
+    fetchRegistry: false

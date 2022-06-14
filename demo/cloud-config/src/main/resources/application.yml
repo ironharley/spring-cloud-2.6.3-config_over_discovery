@@ -1,0 +1,10 @@
+eureka.client:
+  region: default
+  registryFetchIntervalSeconds: 30
+  serviceUrl.defaultZone: http://localhost:8761/eureka/
+
+server.port: 18888
+spring:
+  application.name: cloud-config
+  profiles.active: native
+  cloud.config.server.native.search-locations: classpath:/dev
