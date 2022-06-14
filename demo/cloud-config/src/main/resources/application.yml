@@ -6,7 +6,7 @@ eureka.client:
 server.port: 18888
 spring:
   application.name: cloud-config
-  profiles.active: git
+  profiles.active: jdbc, git, native
   kafka:
     client-id: ${spring.application.name}
     bootstrap-servers: 'srv-28-8.cl.dev.sbt:9092,srv-28-9.cl.dev.sbt:9092,srv-28-10.cl.dev.sbt:9092'
@@ -20,11 +20,11 @@ spring:
       encrypt:
         enabled: true
         plain-text-encrypt: true
-#      native:
-#        order: 2
-#        search-locations: classpath:/dev
+      jdbc:
+          order: 1
+          sql: 'select key, value from properties where (application = ? and profile = ?) or crutch = ?'
       git:
-#        order: 1
+        order: 2
         ignore-local-ssh-settings: true
         uri: 'https://dzo.sw.sbc.space/bitbucket-ci/scm/pvssd/cloud-config.git'
         username: 'tuz_sbt_ci_ssdconfigservice'
@@ -32,5 +32,34 @@ spring:
         default-label: 'master'
         search-paths: '/dev'
         refresh-rate: 30
+      native:
+        order: 3
+        search-locations: classpath:/dev
+  datasource:
+    url: jdbc:h2:file:/tmp/etc/${spring.application.name}.h2;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
+    username: sa
+    password: password
+    driverClassName: org.h2.Driver
+  h2:
+    console:
+      enabled: true
+      settings:
+        web-allow-others: true
+        trace: true
 
-management.endpoints.web.exposure.include: '*'
+  jpa:
+    defer-datasource-initialization: true
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: true
+    #    properties.hibernate:
+    #      dialect: org.hibernate.dialect.PostgreSQL10Dialect
+    #      jdbc.time_zone: UTC
+    #      temp.use_jdbc_metadata_defaults: false
+    #      use_sql_comments: true
+    #      format_sql: true
+
+  sql.init:
+    mode: always
+    continue-on-error: false
+    schema-locations: classpath:config-db-01.sql
+

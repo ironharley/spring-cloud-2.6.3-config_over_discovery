@@ -19,4 +19,5 @@ public class TestController {
     public String get() {
         return appTestValue;
     }
+
 }
