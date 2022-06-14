@@ -6,19 +6,31 @@ eureka.client:
 server.port: 18888
 spring:
   application.name: cloud-config
-  profiles.active: native
-  cloud.config.server:
-    encrypt:
+  profiles.active: git
+  kafka:
+    client-id: ${spring.application.name}
+    bootstrap-servers: 'srv-28-8.cl.dev.sbt:9092,srv-28-9.cl.dev.sbt:9092,srv-28-10.cl.dev.sbt:9092'
+    consumer:
+      group-id: 'ssd-${spring.application.name}'
+
+  cloud:
+    bus:
       enabled: true
-      plain-text-encrypt: true
-    native:
-      search-locations: classpath:/dev
-    git:
-      order: 2
-      ignore-local-ssh-settings: true
-      uri: 'https://dzo.sw.sbc.space/bitbucket-ci/scm/pvssd/cloud-config.git'
-      username: 'tuz_sbt_ci_ssdconfigservice'
-      password: 'CHa?q4=BqG_b7=*kS1'
-      default-label: 'master'
-      search-paths: '/${app.branch.name}'
-      refresh-rate: 30
+    config.server:
+      encrypt:
+        enabled: true
+        plain-text-encrypt: true
+#      native:
+#        order: 2
+#        search-locations: classpath:/dev
+      git:
+#        order: 1
+        ignore-local-ssh-settings: true
+        uri: 'https://dzo.sw.sbc.space/bitbucket-ci/scm/pvssd/cloud-config.git'
+        username: 'tuz_sbt_ci_ssdconfigservice'
+        password: 'CHa?q4=BqG_b7=*kS1'
+        default-label: 'master'
+        search-paths: '/dev'
+        refresh-rate: 30
+
+management.endpoints.web.exposure.include: '*'
