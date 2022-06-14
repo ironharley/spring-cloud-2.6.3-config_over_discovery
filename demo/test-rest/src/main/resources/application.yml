@@ -4,13 +4,7 @@ eureka.client:
   serviceUrl.defaultZone: http://localhost:8761/eureka/
 
 spring:
-  config.import: optional:configserver:cloud-config
+  config.import: 'optional:configserver:http://localhost:18888'
   application.name: test-rest
-  cloud:
-    config:
-      discovery:
-        enabled: true
-        service-id: cloud-config
-    discovery:
-      enabled: true
+  cloud.discovery.enabled: true
 debug: true

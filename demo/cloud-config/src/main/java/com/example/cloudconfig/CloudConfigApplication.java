@@ -8,7 +8,6 @@ import org.springframework.cloud.config.server.EnableConfigServer;
 
 @SpringBootApplication
 @EnableConfigServer
-@EnableConfigurationProperties
 @EnableDiscoveryClient
 public class CloudConfigApplication {
 
