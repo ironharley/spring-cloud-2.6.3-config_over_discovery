@@ -16,6 +16,7 @@ spring:
   cloud:
     bus:
       enabled: true
+      id: ${spring.application.name}
     config.server:
       encrypt:
         enabled: true

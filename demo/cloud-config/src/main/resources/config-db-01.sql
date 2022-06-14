@@ -6,10 +6,11 @@ CREATE TABLE IF NOT EXISTS PROPERTIES
     LABEL         varchar(255) ,
     KEY          varchar(255)       not null,
     VALUE        varchar(1024)       not null,
-   -- LAST_ACCESSED TIMESTAMP not null,
+    LAST_ACCESSED TIMESTAMP not null,
     ID       bigint,
     CRUTCH       varchar(1),
-    primary key (id)
+    primary key (id),
+    constraint uq1 unique (APPLICATION, PROFILE, LABEL, KEY)
 );
 
 comment on table PROPERTIES is 'cloud-config properties';

@@ -8,30 +8,39 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.bus.event.Destination;
+import org.springframework.cloud.bus.event.PathDestinationFactory;
+import org.springframework.cloud.bus.event.RefreshRemoteApplicationEvent;
 import org.springframework.cloud.config.environment.Environment;
+import org.springframework.cloud.config.monitor.PropertyPathEndpoint;
 import org.springframework.cloud.config.server.environment.EnvironmentRepository;
 import org.springframework.cloud.config.server.environment.JdbcEnvironmentRepository;
 import org.springframework.cloud.config.server.environment.SearchPathCompositeEnvironmentRepository;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Component
 @Slf4j
-public class H2Service {
+public class H2Service implements ApplicationEventPublisherAware {
     private final SearchPathCompositeEnvironmentRepository gitRepository;
     private final JdbcEnvironmentRepository jdbcRepository;
     private final SourcesRepository sourcesRepository;
     private final PropertiesRepository propertiesRepository;
+
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @Value("${debug:false}")
     private boolean debug;
 
     @Value("${app.cloud-config.default-label:master}")
     private String defaultLabel;
+
+    @Value("${spring.cloud.bus.id:application}")
+    private String busId;
 
     public H2Service(@Autowired(required = false) @Qualifier("searchPathCompositeEnvironmentRepository") EnvironmentRepository gitRepository,
                      @Autowired(required = false) @Qualifier("jdbcEnvironmentRepository") EnvironmentRepository jdbcRepository,
@@ -132,8 +141,45 @@ public class H2Service {
         return rtn;
     }
 
+    // Авторассылка изменений, скопипащено
+    // https://github.com/spring-cloud/spring-cloud-config/blob/main/spring-cloud-config-monitor/src/main/java/org/springframework/cloud/config/monitor/PropertyPathEndpoint.java
+    //
     public void onRowChanged(Object o) {
-        int a = 0;
+        if (o instanceof Properties) {
+            for (String service : constructServiceName(((Properties)o).getApplication())) {
+                this.applicationEventPublisher.publishEvent(
+                        new RefreshRemoteApplicationEvent(
+                                this,
+                                this.busId,
+                                (new PathDestinationFactory()).getDestination(service)
+                        )
+                );
+            }
+        }
+    }
+
+    // тоже скопипащено
+    private Set<String> constructServiceName(String app) {
+        Set<String> services = new LinkedHashSet<>();
+        int index = app.indexOf("-");
+        while (index >= 0) {
+            String name = app.substring(0, index);
+            String profile = app.substring(index + 1);
+            if ("application".equals(name)) {
+                services.add("*:" + profile);
+            }
+            else if (!name.startsWith("application")) {
+                services.add(name + ":" + profile);
+            }
+            index = app.indexOf("-", index + 1);
+        }
+        if ("application".equals(app)) {
+            services.add("*");
+        }
+        else if (!app.startsWith("application")) {
+            services.add(app);
+        }
+        return services;
     }
 
     public String create(String app, String profile, String key, String value) {
@@ -145,5 +191,10 @@ public class H2Service {
                         .value(value)
                 .build()
         ).toString();
+    }
+
+    @Override
+    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 }

@@ -34,10 +34,9 @@ public class Properties {
     @Column(name = "VALUE")
     private String value;
 
-/*
     @Column(name = "LAST_ACCESSED")
-    private Instant lastAccess;
-*/
+    @Builder.Default
+    private Instant lastAccess = Instant.now();
 
 
 }
