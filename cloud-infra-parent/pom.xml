@@ -64,4 +64,29 @@
         </dependencies>
     </dependencyManagement>
 
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <layers>
+                        <enabled>true</enabled>
+                        <configuration>${project.parent.parent.basedir}/layers.xml</configuration>
+                    </layers>
+                    <image>
+                        <name>10.27.12.2:5000/sbt-dev/${project.artifactId}:${project.version}</name>
+                        <publish>true</publish>
+                    </image>
+                    <docker>
+                        <publishRegistry>
+                            <token>this is anon registry</token>
+                            <url>http://10.27.12.2:5000</url>
+                        </publishRegistry>
+                    </docker>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>
