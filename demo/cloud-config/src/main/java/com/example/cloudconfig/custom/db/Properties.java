@@ -38,5 +38,8 @@ public class Properties {
     @Builder.Default
     private Instant lastAccess = Instant.now();
 
+    @Transient
+    private String message;
+
 
 }

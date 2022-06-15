@@ -1,6 +1,9 @@
 package com.example.cloudconfig.custom.db;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.validation.annotation.Validated;
 
@@ -11,8 +14,7 @@ import java.time.Instant;
 @Validated
 public interface PropertiesRepository extends JpaRepository<Properties, Long> {
 
-    default Properties saveWithTime(@NotNull Properties p) {
-       // p.setLastAccess(Instant.now());
-        return this.save(p);
-    }
+    @Modifying
+    @Query("delete from Properties p where p.id = :id")
+    void delete(@Param("id") long  id);
 }

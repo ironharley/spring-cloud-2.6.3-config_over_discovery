@@ -8,11 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cloud.bus.event.Destination;
 import org.springframework.cloud.bus.event.PathDestinationFactory;
 import org.springframework.cloud.bus.event.RefreshRemoteApplicationEvent;
 import org.springframework.cloud.config.environment.Environment;
-import org.springframework.cloud.config.monitor.PropertyPathEndpoint;
 import org.springframework.cloud.config.server.environment.EnvironmentRepository;
 import org.springframework.cloud.config.server.environment.JdbcEnvironmentRepository;
 import org.springframework.cloud.config.server.environment.SearchPathCompositeEnvironmentRepository;
@@ -20,10 +18,18 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 
+import javax.validation.constraints.NotNull;
+import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 @Component
+@Validated
 @Slf4j
 public class H2Service implements ApplicationEventPublisherAware {
     private final SearchPathCompositeEnvironmentRepository gitRepository;
@@ -32,6 +38,7 @@ public class H2Service implements ApplicationEventPublisherAware {
     private final PropertiesRepository propertiesRepository;
 
     private ApplicationEventPublisher applicationEventPublisher;
+    private final Lock lockEventsInThread = new ReentrantLock();
 
     @Value("${debug:false}")
     private boolean debug;
@@ -64,33 +71,39 @@ public class H2Service implements ApplicationEventPublisherAware {
 
     @Transactional
     public void fillProperties() {
-        Map<String, Map<String, Map<String, String>>> props = this.getAllKnownProperties(true);
-               props .forEach((profile, appmap) ->
-                        //todo add labelmap here
-                        appmap.forEach((application, values) ->
-                                values.forEach((key, value) -> {
-                                    if (value != null) {
-                                        try {
-                                            Properties p = propertiesRepository.save(
-                                                    Properties
-                                                            .builder()
-                                                            .application(application)
-                                                            .profile(profile)
-                                                            .key(key)
-                                                            .value(value)
-                                                            //.lastAccess(Instant.now())
-                                                            .build()
-                                            );
-                                            if (debug)
-                                                log.info("saved: {}", p);
-                                        } catch (Throwable e) {
-                                            log.error("{}", e.getMessage(), e);
-                                            System.exit(1);
-                                        }
-                                    } else {
-                                        log.warn("{}-{} key {} value is null", application, profile, key);
-                                    }
-                                })));
+        synchronized (this.propertiesRepository) {
+            this.lockEventsInThread.lock();
+            Collection<String> apps = new HashSet<>();
+            Map<String, Map<String, Map<String, String>>> props = this.getAllKnownProperties(true);
+            props.forEach((profile, appmap) -> {
+                apps.addAll(appmap.keySet());
+                appmap.forEach((application, values) -> values.forEach((key, value) -> {
+                    if (value != null) {
+                        try {
+                            Properties p = propertiesRepository.save(
+                                    Properties
+                                            .builder()
+                                            .application(application)
+                                            .profile(profile)
+                                            .key(key)
+                                            .value(value)
+                                            .lastAccess(Instant.now())
+                                            .build()
+                            );
+                            if (debug)
+                                log.info("saved: {}", p);
+                        } catch (Throwable e) {
+                            log.error("{}", e.getMessage(), e);
+                            System.exit(1);
+                        }
+                    } else {
+                        log.warn("{}-{} key {} value is null", application, profile, key);
+                    }
+                }));
+            });
+            this.lockEventsInThread.unlock();
+            apps.forEach(this::publishEventOf);
+        }
     }
 
     public Map<String, Map<String, Map<String, String>>> getAllKnownProperties(boolean fill) {
@@ -141,20 +154,25 @@ public class H2Service implements ApplicationEventPublisherAware {
         return rtn;
     }
 
-    // Авторассылка изменений, скопипащено
-    // https://github.com/spring-cloud/spring-cloud-config/blob/main/spring-cloud-config-monitor/src/main/java/org/springframework/cloud/config/monitor/PropertyPathEndpoint.java
-    //
     public void onRowChanged(Object o) {
         if (o instanceof Properties) {
-            for (String service : constructServiceName(((Properties)o).getApplication())) {
-                this.applicationEventPublisher.publishEvent(
-                        new RefreshRemoteApplicationEvent(
-                                this,
-                                this.busId,
-                                (new PathDestinationFactory()).getDestination(service)
-                        )
-                );
-            }
+            if (!this.lockEventsInThread.tryLock())
+                this.publishEventOf(((Properties)o).getApplication());
+        }
+    }
+
+    // Рассылка изменений, скопипащено
+    // https://github.com/spring-cloud/spring-cloud-config/blob/main/spring-cloud-config-monitor/src/main/java/org/springframework/cloud/config/monitor/PropertyPathEndpoint.java
+    //
+    public void publishEventOf(String application) {
+        for (String service : constructServiceName(application)) {
+            this.applicationEventPublisher.publishEvent(
+                    new RefreshRemoteApplicationEvent(
+                            this,
+                            this.busId,
+                            (new PathDestinationFactory()).getDestination(service)
+                    )
+            );
         }
     }
 
@@ -182,19 +200,82 @@ public class H2Service implements ApplicationEventPublisherAware {
         return services;
     }
 
-    public String create(String app, String profile, String key, String value) {
-        return propertiesRepository.save(Properties
-                .builder()
-                        .application(app)
-                        .profile(profile)
-                        .key(key)
-                        .value(value)
-                .build()
-        ).toString();
+    @Transactional
+    public Collection<Properties> create(@NotNull Collection<AppPropertiesPayload> payload, boolean batch) {
+        Collection<Properties> res = new HashSet<>();
+        if (batch)
+            this.lockEventsInThread.lock();
+        for( AppPropertiesPayload aps: payload ) {
+            if (aps.getProperties() != null)
+                aps.getProperties().forEach(ap -> {
+                    Properties p = Properties
+                            .builder()
+                            .application(aps.getApplication())
+                            .profile(aps.getProfile())
+                            .label(aps.getLabel())
+                            .key(ap.getKey())
+                            .value(ap.getValue())
+                            .build();
+                    try {
+                        p = propertiesRepository.save(p);
+                    } catch( Throwable t) {
+                        p.setMessage(t.getMessage());
+                        log.error("{}", t.getMessage(), t);
+                    }
+                    res.add(p);
+                });
+
+        }
+        if (this.lockEventsInThread.tryLock()) {
+            this.lockEventsInThread.unlock();
+            res.forEach(properties -> publishEventOf(properties.getApplication()));
+        }
+        return res;
     }
 
     @Override
     public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
         this.applicationEventPublisher = applicationEventPublisher;
+    }
+
+    @Transactional
+    public Properties update(int id, @NotNull AppProperty ap) {
+        Properties p = Properties.builder().id((long) id).build();
+        try {
+            p = propertiesRepository.findById((long) id).orElseThrow();
+            p.setValue(ap.getValue());
+            p = propertiesRepository.save(p);
+        } catch( Throwable t) {
+            p.setMessage(t.getMessage());
+            log.error("{}", t.getMessage(), t);
+        }
+        return p;
+    }
+
+    public Properties get(int id) {
+        try {
+            return propertiesRepository.findById((long) id).orElseThrow();
+        } catch( Throwable t) {
+            log.error("{}", t.getMessage(), t);
+        }
+        return null;
+
+    }
+
+    public Collection<Properties> getAll() {
+        return new HashSet<>(propertiesRepository.findAll());
+    }
+
+    @Transactional
+    public Properties delete(int id) {
+        Properties p = Properties.builder().id((long) id).build();
+        try {
+            p = propertiesRepository.findById((long) id).orElseThrow();
+            propertiesRepository.delete((long) id);
+        } catch( Throwable t) {
+            p.setMessage(t.getMessage());
+            log.error("{}", t.getMessage(), t);
+        }
+        return p;
     }
 }

@@ -21,6 +21,7 @@
     <modules>
         <module>../demo/cloud-config</module>
         <module>../demo/eureka-server</module>
+        <module>../demo/cloud-gateway</module>
     </modules>
 
     <dependencies>
